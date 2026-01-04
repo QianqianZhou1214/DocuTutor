@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+mysql-connector-python
+python-dotenv
+langchain
+chromadb
+python-multipart
+pdfplumber
+python-pptx
+PyYAML
+fastapi-utils
