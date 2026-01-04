@@ -67,3 +67,53 @@ def init_chroma_collection(collection_name: str):
     )
 
 
+# save files and processing chunks
+def save_file_to_chroma(
+        db: Session, user_id: int, file_path: str, filename: str
+) -> List[str]:
+    """
+    upload files, chunking, saving to chroma db
+    :param db: database
+    :param user_id: user's id
+    :param file_path: file path
+    :param filename: file name
+    :return: chunk_id list
+    """
+    text = parse_file(file_path)
+    f_hash = file_hash(text)
+
+    # check if the file already exists
+    existing_file: Optional[File] = db.query(File).filter_by(user_id=user_id, file_hash=f_hash).first()
+    if existing_file:
+        print("File already processed. Skipping chunking.")
+        return []
+
+    # chunking
+    chunks = split_text(text)
+    print(f"File split into {len(chunks)} chunks")
+
+    # initializing Chroma collection
+    collection = init_chroma_collection(f"user_{user_id}")
+
+    # save chunks
+    for i, doc in enumerate(chunks):
+        collection.add_documents(
+            [doc],
+            metadatas=[{"file_name": filename, "chunk_index": i, "file_hash": f_hash}],
+            ids=[f"{filename}_{i}"]
+        )
+    collection.persist()
+    print(f"Saved {len(chunks)} chunks to Chroma for user {user_id}")
+
+    # save record to database
+    new_file = File(user_id=user_id, filename=filename, file_hash=f_hash)
+    db.add(new_file)
+    db.commit()
+    db.refresh(new_file)
+
+    return [f"{filename}_{i}" for i in range(len(chunks))]
+
+
+# get user's chunks
+def get_user_chunks(user_id: int) -> Chroma:
+    return init_chroma_collection(f"user_{user_id}")
