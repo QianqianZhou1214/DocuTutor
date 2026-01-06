@@ -1,47 +1,37 @@
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple
-from ..models import ChatHistory, User
+from typing import List, Tuple
 from sqlalchemy.orm import Session
+from ..models import ChatHistory
 import uuid
-
-# store session in memory (persistence in DB)
-session_histories: Dict[str, List[Tuple[str, str]]] = {}
-session_timestamps: Dict[str, datetime] = {}
-
-SESSION_TIMEOUT_HOURS = 2
+from datetime import datetime
 
 
-# new session
-def new_session(user_id: int) -> str:
-    session_id = str(uuid.uuid4())
-    session_histories[session_id] = []
-    session_timestamps[session_id] = datetime.now()
-    return session_id
+# new session ID
+def new_session() -> str:
 
-
-# get history
-def get_history(session_id: str) -> List[Tuple[str, str]]:
-    return session_histories.get(session_id, [])
+    return str(uuid.uuid4())
 
 
 # add chat history
-def add_history(session_id: str, question: str, answer: str, db: Session = None, user_id: int = None):
-    if session_id not in session_histories:
-        session_histories[session_id] = []
-    session_histories[session_id].append((question, answer))
-    session_timestamps[session_id] = datetime.now()
+def add_history(
+        session_id: str,
+        question: str,
+        answer: str,
+        db: Session = None,
+        user_id: int = None
+):
+    chat = ChatHistory(session_id=session_id, user_id=user_id, question=question, answer=answer)
+    db.add(chat)
+    db.commit()
 
-    # save to DB
-    if db and user_id:
-        chat = ChatHistory(session_id=session_id, user_id=user_id, question=question, answer=answer)
-        db.add(chat)
-        db.commit()
 
+# load chat history from DB
+def load_history(
+        session_id: str,
+        db: Session
+) -> List[Tuple[str, str]]:
+    chats = db.query(ChatHistory) \
+        .filter(ChatHistory.session_id == session_id) \
+        .order_by(ChatHistory.timestamp.asc()) \
+        .all()
 
-# clean up old sessions
-def cleanup_sessions():
-    now = datetime.now()
-    to_delete = [sid for sid, ts in session_timestamps.items() if now - ts > timedelta(hours=SESSION_TIMEOUT_HOURS)]
-    for sid in to_delete:
-        session_histories.pop(sid, None)
-        session_timestamps.pop(sid, None)
+    return [(c.question, c.answer) for c in chats]

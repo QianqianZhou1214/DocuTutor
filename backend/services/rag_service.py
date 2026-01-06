@@ -1,11 +1,8 @@
 from langchain.chains import ConversationalRetrievalChain
-from langchain_core.prompts import PromptTemplate
-from langchain.memory import ConversationBufferWindowMemory
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
 from langchain_groq import ChatGroq
-from typing import List, Tuple
-from ..services.chat_service import get_history
+from sqlalchemy.orm import Session
+from .db_memory import load_memory_from_db
 from ..services.embedding_factory import EmbeddingFactory
 
 # settings
@@ -33,48 +30,28 @@ def get_retriever(user_id: int):
     ).as_retriever(search_type="similarity", search_kwargs={"k": 4})
 
 
-# Build prompt
-def create_prompt(question: str, chat_history: List[Tuple[str, str]], system_prompt: str):
-    formatted_history = "\n".join([f"User: {q}\nAssistant: {a}" for q, a in chat_history if a is not None])
-
-    template = f"""
-    System: {system_prompt}
-    Chat History:
-    {formatted_history}
-
-    User Input: {question}
-    Answer concisely and informatively:
-    """
-    return PromptTemplate(
-        input_variables=["chat_history", "question", "context"],
-        template=template
-    )
-
-
 # RAG query
 def query_rag(
+        *,
         question: str,
         user_id: int,
         llm,
         session_id: str,
+        db: Session,
         system_prompt: str,
-        memory_k: int = MEMORY_K
-):
-    chat_history = get_history(session_id)
-
+) -> str:
+    # load memory from DB
+    memory = load_memory_from_db(db, session_id)
+    # Retriever
     retriever = get_retriever(user_id)
-    memory = ConversationBufferWindowMemory(k=memory_k, memory_key="chat_history", return_messages=True)
-    prompt = create_prompt(question, chat_history, system_prompt)
 
     conv_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=memory,
-        combine_docs_chain_kwargs={"prompt": prompt, "document_variable_name": "context"},
         output_key="answer",
-        get_chat_history=lambda h: h
     )
 
-    result = conv_chain({"question": question, "chat_history": chat_history})
+    result = conv_chain({"question": question})
     answer = result["answer"].strip()
     return answer
