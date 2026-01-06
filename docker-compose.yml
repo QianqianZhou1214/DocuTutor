@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: docututor
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: docututor
+      MYSQL_USER: student
+      MYSQL_PASSWORD: secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:

@@ -1,0 +1,27 @@
+# Embedding Configuration
+embedding:
+  provider: huggingface
+  huggingface:
+    model_name: sentence-transformer/all-MiniLM-L6-v2
+  openai:
+    model: text-embedding-3-small
+
+
+vectorstore:
+  path_chroma: "./docs/chroma"
+
+
+retriever:
+  search_type: "similarity"
+  search_kwargs:
+    k: 4
+
+memory:
+  k: 10
+
+qa:
+  chain_type: "stuff"
+  output_key: "answer"
+
+system_prompt: |
+  You are **DocuTutor**, a professional student study AI assistant...

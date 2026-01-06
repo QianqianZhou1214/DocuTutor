@@ -10,10 +10,10 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import Chroma
 from sqlalchemy.orm import Session
 from ..models import File
+from .embedding_factory import EmbeddingFactory
 
 # Settings
 CHROMA_DIR = os.getenv("CHROMA_DIR", "./chroma_db")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 CHUNK_SIZE = 1500
 CHUNK_OVERLAP = 200
 SEPARATOR = "=================================================="
@@ -59,12 +59,16 @@ def split_text(text: str) -> List[Document]:
 
 # initializing Chroma
 def init_chroma_collection(collection_name: str):
-    embedding_function = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    embedding_function = EmbeddingFactory.create()
     return Chroma(
         collection_name=collection_name,
         persist_directory=CHROMA_DIR,
         embedding_function=embedding_function
     )
+
+
+def init_global_chroma():
+    return init_chroma_collection("global_docs")
 
 
 # save files and processing chunks
